@@ -1,0 +1,90 @@
+#!/usr/bin/env python3
+#
+# MacOS Terminal Spotify Control Tool.
+#
+#  Examples
+# ==========
+#
+# $ spotifyctl info
+# Current spotify state: paused
+#
+# $ spotifyctl play
+# Now playing: Rick Astley - Never Gonna Give You Up (shuffling)
+#
+# $ spotifyctl unshuffle
+# Now playing: Rick Astley - Never Gonna Give You Up (no shuffling)
+#
+# $ spotifyctl shuffle
+# Now playing: Rick Astley - Never Gonna Give You Up (shuffling)
+#
+# $ spotifyctl next
+# Now playing: MOMO Soundz - Never Gonna Give You Up (feat. Facu Celasco) (shuffling)
+#
+# $ spotifyctl prev
+# Now playing: Rick Astley - Never Gonna Give You Up (shuffling)
+#
+# $ spotifyctl pause
+# Current spotify state: paused
+#
+#
+#
+# See also: osascript trigger for spotify https://gist.github.com/ppmx/5bc8a5993086b6b4d3b2651d2bc1c601
+
+import argparse
+import subprocess
+
+def run_unsafe(cmd):
+    proc = subprocess.run(cmd, shell=True, capture_output=True)
+    return proc.stdout.decode().strip()
+
+def tell_spotify(command):
+    run_unsafe(f"osascript -e 'tell Application \"Spotify\" to {command}'")
+
+def spotify_get_state():
+    return run_unsafe("osascript -e 'tell application \"Spotify\" to player state'")
+
+def spotify_get_artist():
+    return run_unsafe("osascript -e 'tell application \"Spotify\" to artist of current track'")
+
+def spotify_get_track():
+    return run_unsafe("osascript -e 'tell application \"Spotify\" to name of current track'")
+
+def spotify_is_shuffling():
+    return run_unsafe("osascript -e 'tell application \"Spotify\" to shuffling'") == "true"
+
+def spotify_set_shuffling(enable_shuffling=True):
+    return run_unsafe("osascript -e 'tell application \"Spotify\" to set shuffling to {do_shuffle}'")
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "action",
+        nargs='?',
+        choices=["unshuffle", "shuffle", "info", "play", "pause", "next", "prev"],
+        default="info"
+    )
+    args = parser.parse_args()
+
+    match args.action:
+        case "play":
+            tell_spotify("play")
+        case "pause":
+            tell_spotify("pause")
+        case "next":
+            tell_spotify("next track")
+        case "prev":
+            tell_spotify("previous track")
+        case "shuffle":
+            tell_spotify("set shuffling to true")
+        case "unshuffle":
+            tell_spotify("set shuffling to false")
+
+    # print info:
+    if (current_state := spotify_get_state()) == "playing":
+        shuffle_label = "shuffling" if spotify_is_shuffling() else "no shuffling"
+        print(f"Now playing: {spotify_get_artist()} - {spotify_get_track()} ({shuffle_label})")
+    else:
+        print(f"Current spotify state: {current_state}")
+
+if __name__ == "__main__":
+    main()

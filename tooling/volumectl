@@ -1,0 +1,66 @@
+#!/usr/bin/env python3
+#
+# MacOS - Control output volume via command line.
+#
+
+import argparse
+import re
+import subprocess
+
+def run_unsafe(cmd):
+    proc = subprocess.run(cmd, shell=True, capture_output=True)
+    return proc.stdout.decode()
+
+def get_current_volume() -> tuple[int, bool]:
+    current_vol_raw = run_unsafe("osascript -e 'get volume settings'")
+
+    current_volume = int(re.search("output volume:(\d*)", current_vol_raw).group(1))
+    is_muted = re.search("output muted:(false|true)", current_vol_raw).group(1) == "true"
+
+    return current_volume, is_muted
+
+def set_volume(new_volume: int) -> None:
+    run_unsafe(f"osascript -e 'set volume output volume {new_volume}'")
+
+def set_mute(mute=True):
+    run_unsafe(f"osascript -e 'set volume output muted {mute}'")
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "command",
+        nargs='?',
+        choices=["info", "inc", "dec", "set", "unmute", "mute"],
+        default="info"
+    )
+    parser.add_argument(
+        "step",
+        nargs='?',
+        type=int,
+        choices=range(101),
+        default=20,
+        metavar="step in [0-100], defaults to 20"
+    )
+    args = parser.parse_args()
+
+    current_volume, is_muted = get_current_volume()
+
+    match args.command:
+        case "info":
+            print(f"current volume: {current_volume}, {'muted' if is_muted else 'unmuted'}")
+        case "set":
+            set_volume(args.step)
+        case "inc" | "dec":
+            new_volume = current_volume + (args.step if args.command == "inc" else -args.step)
+            set_volume(new_volume)
+            print(f"changing volume from {current_volume} to {new_volume}")
+        case "unmute":
+            if is_muted:
+                set_mute(mute=False)
+        case "mute":
+            if not is_muted:
+                set_mute(mute=True)
+
+if __name__ == "__main__":
+    main()
+
